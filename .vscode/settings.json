@@ -1,0 +1,6 @@
+{
+    "python.analysis.extraPaths": [
+        "./dbus-mqtt-evcc/ext/velib_python"
+    ],
+    "[python]": { "editor.formatOnSave": true }
+}

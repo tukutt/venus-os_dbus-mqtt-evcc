@@ -1,0 +1,8 @@
+/*/config.ini
+/*/energy_state.json
+/*/energy_state.json.tmp
+/data
+/logs
+base-clone/
+__pycache__/
+*.pyc
