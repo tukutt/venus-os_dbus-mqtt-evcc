@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3
+* Fixed: "Enable Charging" toggle and "Charge Current" slider still shown in
+  Venus OS / VRM despite read-only operation. `/StartStop` and `/SetCurrent`
+  are no longer registered, so the GUI hides the non-functional controls
+  (`/IsGenericEnergyMeter` alone did not hide them). Actual current stays on
+  `/Current`.
+
 ## 0.1.2
 * Added: `/IsGenericEnergyMeter = 1` so Venus OS hides the non-functional
   "Enable Charging" toggle and "Charge Current" slider (driver is read-only)

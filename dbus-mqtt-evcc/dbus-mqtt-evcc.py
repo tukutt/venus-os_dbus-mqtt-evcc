@@ -178,6 +178,13 @@ if phases != 3:
     del ev_charger_dict["/Ac/L2/Power"]
     del ev_charger_dict["/Ac/L3/Power"]
 
+# Read/display only: evcc is the master of the charger. Venus OS / VRM bind the
+# "Enable Charging" toggle to /StartStop and the "Charge Current" slider to
+# /SetCurrent; not registering these paths makes the GUI hide the (non-functional)
+# controls. The actual charging current is still shown via /Current.
+for control_path in ("/StartStop", "/SetCurrent"):
+    ev_charger_dict.pop(control_path, None)
+
 
 """
 com.victronenergy.evcharger -- relevant paths used by this driver
@@ -314,7 +321,7 @@ class DbusMqttEvccService:
         self._dbusservice.add_path("/ProductId", 0xFFFF)
         self._dbusservice.add_path("/ProductName", productname)
         self._dbusservice.add_path("/CustomName", customname)
-        self._dbusservice.add_path("/FirmwareVersion", "0.1.2 (20260606)")
+        self._dbusservice.add_path("/FirmwareVersion", "0.1.3 (20260606)")
         # self._dbusservice.add_path('/HardwareVersion', '')
 
         # This driver is read/display only (evcc is the master). Tell Venus OS the
