@@ -10,11 +10,7 @@ echo ""
 echo -n "Fetch current version numbers..."
 
 # latest release
-latest_release_stable=$(curl -s https://api.github.com/repos/mr-manuel/venus-os_${driver_name}/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d "\ " | tr -d \" | tr -d \,)
-
-# nightly build
-latest_release_nightly=$(curl -s https://raw.githubusercontent.com/mr-manuel/venus-os_${driver_name}/master/${driver_name}/${driver_name}.py | grep FirmwareVersion | awk -F'"' '{print $4}')
-
+latest_release_stable=$(curl -s https://api.github.com/repos/tukutt/venus-os_${driver_name}/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d "\ " | tr -d \" | tr -d \,)
 
 echo
 PS3=$'\nSelect which version you want to install and enter the corresponding number: '
@@ -22,7 +18,6 @@ PS3=$'\nSelect which version you want to install and enter the corresponding num
 # create list of versions
 version_list=(
     "latest release \"$latest_release_stable\""
-    "nightly build \"v$latest_release_nightly\""
     "quit"
 )
 
@@ -30,9 +25,6 @@ select version in "${version_list[@]}"
 do
     case $version in
         "latest release \"$latest_release_stable\"")
-            break
-            ;;
-        "nightly build \"v$latest_release_nightly\"")
             break
             ;;
         "quit")
@@ -83,17 +75,8 @@ echo ""
 echo "Downloading driver..."
 
 
-## latest release
-if [ "$version" = "latest release \"$latest_release_stable\"" ]; then
-    # download latest release
-    url=$(curl -s https://api.github.com/repos/mr-manuel/venus-os_${driver_name}/releases/latest | grep "zipball_url" | sed -n 's/.*"zipball_url": "\([^"]*\)".*/\1/p')
-fi
-
-## nightly build
-if [ "$version" = "nightly build \"v$latest_release_nightly\"" ]; then
-    # download nightly build
-    url="https://github.com/mr-manuel/venus-os_${driver_name}/archive/refs/heads/master.zip"
-fi
+# download latest release
+url=$(curl -s https://api.github.com/repos/tukutt/venus-os_${driver_name}/releases/latest | grep "zipball_url" | sed -n 's/.*"zipball_url": "\([^"]*\)".*/\1/p')
 
 echo "Downloading from: $url"
 wget -O /tmp/venus-os_${driver_name}.zip "$url"

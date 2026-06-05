@@ -1,6 +1,6 @@
 # dbus-mqtt-evcc - Bridge an evcc-controlled EV charger to Victron Venus OS
 
-<small>GitHub repository: [mr-manuel/venus-os_dbus-mqtt-evcc](https://github.com/mr-manuel/venus-os_dbus-mqtt-evcc)</small>
+<small>GitHub repository: [tukutt/venus-os_dbus-mqtt-evcc](https://github.com/tukutt/venus-os_dbus-mqtt-evcc)</small>
 
 ## Index
 
@@ -131,7 +131,7 @@ All topics are relative to `<topic_prefix>/loadpoints/<loadpoint_id>/`
 2. Execute these commands to download and copy the files:
 
     ```bash
-    wget -O /tmp/download_dbus-mqtt-evcc.sh https://raw.githubusercontent.com/mr-manuel/venus-os_dbus-mqtt-evcc/master/download.sh
+    wget -O /tmp/download_dbus-mqtt-evcc.sh https://raw.githubusercontent.com/tukutt/venus-os_dbus-mqtt-evcc/master/download.sh
 
     bash /tmp/download_dbus-mqtt-evcc.sh
     ```
