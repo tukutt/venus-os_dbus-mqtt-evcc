@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+* Fixed: single-phase charger (`phases = 1`) was shown as three-phase in Venus OS;
+  `/Ac/L2/Power` and `/Ac/L3/Power` are now only exposed when `phases = 3`
+
 ## 0.1.0
 * Forked from `dbus-mqtt-ev-charger` as `dbus-mqtt-evcc`
 * Added: native evcc MQTT API parser (one raw value per sub-topic, no JSON)

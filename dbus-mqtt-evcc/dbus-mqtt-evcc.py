@@ -171,6 +171,13 @@ ev_charger_dict = {
     "/Status": {"value": STATUS_DISCONNECTED, "textformat": _n},
 }
 
+# A single-phase charger has no L2/L3. Venus OS infers the number of phases from
+# which /Ac/Lx/Power paths exist (not their value), so only expose the ones in
+# use - otherwise the GUI shows the charger as three-phase.
+if phases != 3:
+    del ev_charger_dict["/Ac/L2/Power"]
+    del ev_charger_dict["/Ac/L3/Power"]
+
 
 """
 com.victronenergy.evcharger -- relevant paths used by this driver
@@ -307,7 +314,7 @@ class DbusMqttEvccService:
         self._dbusservice.add_path("/ProductId", 0xFFFF)
         self._dbusservice.add_path("/ProductName", productname)
         self._dbusservice.add_path("/CustomName", customname)
-        self._dbusservice.add_path("/FirmwareVersion", "0.1.0 (20260605)")
+        self._dbusservice.add_path("/FirmwareVersion", "0.1.1 (20260606)")
         # self._dbusservice.add_path('/HardwareVersion', '')
 
         self._dbusservice.add_path("/Position", int(config_get("DEFAULT", "position", "0")))
@@ -340,12 +347,11 @@ class DbusMqttEvccService:
             if ev_charger_dict["/Status"]["value"] != STATUS_DISCONNECTED or ev_charger_dict["/Ac/Power"]["value"] != 0:
                 logging.warning("Watchdog: no evcc message for %i seconds, forcing Status=Disconnected and Power=0." % (now - last_changed))
             ev_charger_dict["/Status"]["value"] = STATUS_DISCONNECTED
-            ev_charger_dict["/Ac/Power"]["value"] = 0
-            ev_charger_dict["/Ac/L1/Power"]["value"] = 0
-            ev_charger_dict["/Ac/L2/Power"]["value"] = 0
-            ev_charger_dict["/Ac/L3/Power"]["value"] = 0
-            ev_charger_dict["/Current"]["value"] = 0
             ev_charger_dict["/Connected"]["value"] = 0
+            ev_charger_dict["/Current"]["value"] = 0
+            for power_path in ("/Ac/Power", "/Ac/L1/Power", "/Ac/L2/Power", "/Ac/L3/Power"):
+                if power_path in ev_charger_dict:
+                    ev_charger_dict[power_path]["value"] = 0
             last_changed = 0  # mark watchdog handled, avoid re-logging every second
 
         if last_changed != last_updated:
