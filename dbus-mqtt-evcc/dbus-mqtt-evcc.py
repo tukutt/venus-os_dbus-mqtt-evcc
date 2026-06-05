@@ -314,8 +314,14 @@ class DbusMqttEvccService:
         self._dbusservice.add_path("/ProductId", 0xFFFF)
         self._dbusservice.add_path("/ProductName", productname)
         self._dbusservice.add_path("/CustomName", customname)
-        self._dbusservice.add_path("/FirmwareVersion", "0.1.1 (20260606)")
+        self._dbusservice.add_path("/FirmwareVersion", "0.1.2 (20260606)")
         # self._dbusservice.add_path('/HardwareVersion', '')
+
+        # This driver is read/display only (evcc is the master). Tell Venus OS the
+        # EVSE is measured by a generic energy meter that lacks control functions,
+        # so the GUI hides the (non-functional) "Enable Charging" toggle and the
+        # "Charge Current" slider.
+        self._dbusservice.add_path("/IsGenericEnergyMeter", 1)
 
         self._dbusservice.add_path("/Position", int(config_get("DEFAULT", "position", "0")))
 
