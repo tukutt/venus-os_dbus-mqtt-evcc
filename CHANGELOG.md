@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.5
+* Changed: register the dbus service **before** connecting to MQTT, so the charger
+  always appears even if the broker is unreachable
+* Fixed: MQTT reconnection no longer blocks — use `connect_async` +
+  `reconnect_delay_set` and a non-blocking `on_disconnect` (the old blocking
+  reconnect loop could wedge the driver)
+* Reverted: `python -u` in the run script (its synchronous writes could block the
+  driver if the log service stalled; `logging` already flushes each record)
+* Fixed: `restart.sh` now restarts via `svc -t` instead of a fragile `pgrep`/`pkill`
+  on the exact command line
+
 ## 0.1.4
 * Fixed: `/Current` stayed at 0 — evcc has no scalar `chargeCurrent`; now read
   from `chargeCurrents/l1` (fallback: scalar `chargeCurrents`, then `offeredCurrent`)

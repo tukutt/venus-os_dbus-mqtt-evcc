@@ -234,23 +234,15 @@ def recompute_dbus_values():
 
 # MQTT requests
 def on_disconnect(client, userdata, flags, reason_code, properties):
+    # Do NOT block here: paho's loop (started with loop_start and a configured
+    # reconnect_delay_set) reconnects automatically in the background. Blocking
+    # in this callback - as the original driver did - can wedge the client.
     global mqtt_connected
-    logging.warning("MQTT client: Got disconnected")
+    mqtt_connected = 0
     if reason_code != 0:
-        logging.warning("MQTT client: Unexpected MQTT disconnection. Will auto-reconnect")
+        logging.warning("MQTT client: Unexpected disconnection (reason %s). paho will auto-reconnect." % str(reason_code))
     else:
-        logging.warning("MQTT client: reason_code value:" + str(reason_code))
-
-    while mqtt_connected == 0:
-        try:
-            logging.warning(f"MQTT client: Trying to reconnect to broker {config['MQTT']['broker_address']} on port {config['MQTT']['broker_port']}")
-            client.connect(host=config["MQTT"]["broker_address"], port=int(config["MQTT"]["broker_port"]))
-            mqtt_connected = 1
-        except Exception as err:
-            logging.error(f"MQTT client: Error in retrying to connect with broker ({config['MQTT']['broker_address']}:{config['MQTT']['broker_port']}): {err}")
-            logging.error("MQTT client: Retrying in 15 seconds")
-            mqtt_connected = 0
-            sleep(15)
+        logging.info("MQTT client: Disconnected cleanly.")
 
 
 def on_connect(client, userdata, flags, reason_code, properties):
@@ -331,7 +323,7 @@ class DbusMqttEvccService:
         self._dbusservice.add_path("/ProductId", 0xFFFF)
         self._dbusservice.add_path("/ProductName", productname)
         self._dbusservice.add_path("/CustomName", customname)
-        self._dbusservice.add_path("/FirmwareVersion", "0.1.4 (20260606)")
+        self._dbusservice.add_path("/FirmwareVersion", "0.1.5 (20260606)")
         # self._dbusservice.add_path('/HardwareVersion', '')
 
         # This driver is read/display only (evcc is the master). Tell Venus OS the
@@ -420,6 +412,23 @@ def main():
     # Have a mainloop, so we can send/receive asynchronous calls to and from dbus
     DBusGMainLoop(set_as_default=True)
 
+    # Register the dbus service FIRST, with idle defaults, before touching MQTT.
+    # This way the charger always appears in Venus OS / VRM even if the broker is
+    # unreachable, and a slow/again-failing MQTT connect can never prevent the
+    # device from showing up. It is then populated as evcc messages arrive.
+    paths_dbus = {
+        "/UpdateIndex": {"value": 0, "textformat": _n},
+    }
+    paths_dbus.update(ev_charger_dict)
+
+    DbusMqttEvccService(
+        servicename="com.victronenergy.evcharger.mqtt_evcc_" + str(config["DEFAULT"]["device_instance"]),
+        deviceinstance=int(config["DEFAULT"]["device_instance"]),
+        customname=config["DEFAULT"]["device_name"],
+        paths=paths_dbus,
+    )
+    logging.info("Registered on dbus, setting up MQTT.")
+
     # MQTT setup
     client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2, client_id="MqttEvcc_" + get_vrm_portal_id() + "_" + str(config["DEFAULT"]["device_instance"]))
     client.on_disconnect = on_disconnect
@@ -445,26 +454,15 @@ def main():
         logging.info('MQTT client: Using username "%s" and password to connect' % config["MQTT"]["username"])
         client.username_pw_set(username=config["MQTT"]["username"], password=config["MQTT"]["password"])
 
-    # connect to broker
+    # Connect in the background and let paho's loop handle (re)connection on its
+    # own thread. connect_async never blocks; reconnect_delay_set bounds the
+    # automatic retry backoff. on_connect (re)subscribes on every (re)connection.
+    client.reconnect_delay_set(min_delay=1, max_delay=60)
     logging.info(f"MQTT client: Connecting to broker {config['MQTT']['broker_address']} on port {config['MQTT']['broker_port']}")
-    client.connect(host=config["MQTT"]["broker_address"], port=int(config["MQTT"]["broker_port"]))
+    client.connect_async(host=config["MQTT"]["broker_address"], port=int(config["MQTT"]["broker_port"]))
     client.loop_start()
 
-    # The service registers immediately with idle defaults and is populated as
-    # evcc messages arrive. No "minimum message" is required to start.
-    paths_dbus = {
-        "/UpdateIndex": {"value": 0, "textformat": _n},
-    }
-    paths_dbus.update(ev_charger_dict)
-
-    DbusMqttEvccService(
-        servicename="com.victronenergy.evcharger.mqtt_evcc_" + str(config["DEFAULT"]["device_instance"]),
-        deviceinstance=int(config["DEFAULT"]["device_instance"]),
-        customname=config["DEFAULT"]["device_name"],
-        paths=paths_dbus,
-    )
-
-    logging.info("Connected to dbus and switching over to GLib.MainLoop() (= event based)")
+    logging.info("Switching over to GLib.MainLoop() (= event based)")
     mainloop = GLib.MainLoop()
     mainloop.run()
 
