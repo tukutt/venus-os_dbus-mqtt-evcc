@@ -1,4 +1,4 @@
 #!/bin/sh
 echo "*** starting dbus-mqtt-evcc ***"
 exec 2>&1
-exec python /data/etc/dbus-mqtt-evcc/dbus-mqtt-evcc.py
+exec python -u /data/etc/dbus-mqtt-evcc/dbus-mqtt-evcc.py

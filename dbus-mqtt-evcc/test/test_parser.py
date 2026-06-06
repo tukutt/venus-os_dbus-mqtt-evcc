@@ -90,12 +90,26 @@ class TestUpdateStateIgnoresInvalid(unittest.TestCase):
 
 
 class TestUnitConversions(unittest.TestCase):
-    def test_charge_duration_ns_to_seconds(self):
+    def test_charge_duration_seconds(self):
         state = {}
-        # 1340000000000 ns -> 1340 s
+        # evcc publishes chargeDuration in seconds over MQTT
+        update_state(state, "chargeDuration", "5851")
+        values = compute_dbus_values(state)
+        self.assertEqual(values["/ChargingTime"], 5851)
+        self.assertEqual(values["/Session/Time"], 5851)
+
+    def test_charge_duration_nanoseconds_fallback(self):
+        state = {}
+        # legacy builds that marshal Go time.Duration as ns are still handled
         update_state(state, "chargeDuration", "1340000000000")
         values = compute_dbus_values(state)
         self.assertEqual(values["/ChargingTime"], 1340)
+
+    def test_session_energy_wh_to_kwh(self):
+        state = {}
+        update_state(state, "sessionEnergy", "8625.51")
+        values = compute_dbus_values(state)
+        self.assertAlmostEqual(values["/Session/Energy"], 8.62551)
 
     def test_total_import_wh_to_kwh(self):
         state = {}
@@ -196,20 +210,26 @@ class TestDefaultsBeforeAnyMessage(unittest.TestCase):
         state = {}
         feed(state, "evcc", "1", [
             ("evcc/loadpoints/1/chargePower", "7360"),
-            ("evcc/loadpoints/1/chargeCurrent", "16"),
+            ("evcc/loadpoints/1/chargeCurrents/l1", "16"),
         ])
         values = compute_dbus_values(state)
         for path, value in values.items():
             self.assertNotIsInstance(value, str, "%s should not be a string" % path)
 
 
-class TestCurrentAndSetCurrent(unittest.TestCase):
-    def test_current_and_setcurrent_track_charge_current(self):
+class TestCurrent(unittest.TestCase):
+    def test_current_from_chargecurrents_l1(self):
         state = {}
-        update_state(state, "chargeCurrent", "16")
+        update_state(state, "chargeCurrents/l1", "32.339")
         values = compute_dbus_values(state)
-        self.assertEqual(values["/Current"], 16.0)
-        self.assertEqual(values["/SetCurrent"], 16.0)
+        self.assertAlmostEqual(values["/Current"], 32.339)
+
+    def test_current_falls_back_to_scalar_then_offered(self):
+        self.assertAlmostEqual(compute_dbus_values({"chargeCurrents": 12.0})["/Current"], 12.0)
+        self.assertAlmostEqual(compute_dbus_values({"offeredCurrent": 6.0})["/Current"], 6.0)
+
+    def test_no_current_keys_gives_zero(self):
+        self.assertEqual(compute_dbus_values({})["/Current"], 0.0)
 
 
 class TestEnergyAccumulator(unittest.TestCase):
@@ -250,23 +270,27 @@ class TestRealisticScenario(unittest.TestCase):
             ("evcc/loadpoints/1/charging", "true"),
             ("evcc/loadpoints/1/enabled", "true"),
             ("evcc/loadpoints/1/mode", "pv"),
-            ("evcc/loadpoints/1/chargePower", "7360"),
-            ("evcc/loadpoints/1/chargeCurrent", "16"),
-            ("evcc/loadpoints/1/chargeDuration", "1340000000000"),
-            ("evcc/loadpoints/1/chargeTotalImport", "176920"),
+            ("evcc/loadpoints/1/chargePower", "7543.77"),
+            ("evcc/loadpoints/1/chargeCurrents/l1", "32.339"),
+            ("evcc/loadpoints/1/chargeCurrents/l2", "0"),
+            ("evcc/loadpoints/1/chargeCurrents/l3", "0"),
+            ("evcc/loadpoints/1/chargeDuration", "5851"),
+            ("evcc/loadpoints/1/chargeTotalImport", "10982.014"),
+            ("evcc/loadpoints/1/sessionEnergy", "8625.51"),
             ("evcc/loadpoints/1/phasesActive", "1"),
-            ("evcc/loadpoints/1/vehicleSoc", "37"),
+            ("evcc/loadpoints/1/vehicleSoc", "68.103"),
             # a spurious invalid update that must be ignored
             ("evcc/loadpoints/1/chargePower", "nil"),
         ])
         values = compute_dbus_values(state, phases=1, max_current=32)
         self.assertEqual(values["/Status"], STATUS_CHARGING)
-        self.assertEqual(values["/Ac/Power"], 7360.0)         # not wiped by "nil"
-        self.assertEqual(values["/Ac/L1/Power"], 7360.0)
-        self.assertEqual(values["/Current"], 16.0)
-        self.assertEqual(values["/SetCurrent"], 16.0)
-        self.assertEqual(values["/ChargingTime"], 1340)
-        self.assertAlmostEqual(values["/Ac/Energy/Forward"], 176.920)
+        self.assertAlmostEqual(values["/Ac/Power"], 7543.77)   # not wiped by "nil"
+        self.assertAlmostEqual(values["/Ac/L1/Power"], 7543.77)
+        self.assertAlmostEqual(values["/Current"], 32.339)
+        self.assertEqual(values["/ChargingTime"], 5851)
+        self.assertEqual(values["/Session/Time"], 5851)
+        self.assertAlmostEqual(values["/Ac/Energy/Forward"], 10.982014)
+        self.assertAlmostEqual(values["/Session/Energy"], 8.62551)
         self.assertEqual(values["/Mode"], MODE_AUTO)
         self.assertEqual(values["/StartStop"], 1)
         self.assertEqual(values["/Connected"], 1)

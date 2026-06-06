@@ -9,18 +9,19 @@ logic can be unit-tested off-device (see test/test_parser.py).
 
 evcc publishes one raw value per sub-topic (NOT a single JSON document), e.g.:
 
-    evcc/loadpoints/1/chargePower       -> "7360"            (W)
-    evcc/loadpoints/1/chargeCurrent     -> "16"              (A)
-    evcc/loadpoints/1/chargedEnergy     -> "5210.4"          (Wh, session)
-    evcc/loadpoints/1/chargeTotalImport -> "176920"          (Wh, lifetime; optional)
-    evcc/loadpoints/1/chargeDuration    -> "1340000000000"   (NANOSECONDS)
+    evcc/loadpoints/1/chargePower       -> "7360"      (W)
+    evcc/loadpoints/1/chargeCurrents/l1 -> "32.339"    (A, per phase; l2/l3 too)
+    evcc/loadpoints/1/offeredCurrent    -> "32"        (A, set point)
+    evcc/loadpoints/1/sessionEnergy     -> "8625.51"   (Wh, this session)
+    evcc/loadpoints/1/chargedEnergy     -> "8625.51"   (Wh, this session)
+    evcc/loadpoints/1/chargeTotalImport -> "10982.014" (Wh, lifetime; optional)
+    evcc/loadpoints/1/chargeDuration    -> "5851"      (SECONDS)
     evcc/loadpoints/1/connected         -> "true" / "false"
     evcc/loadpoints/1/charging          -> "true" / "false"
     evcc/loadpoints/1/enabled           -> "true" / "false"
     evcc/loadpoints/1/mode              -> "off" | "now" | "minpv" | "pv"
     evcc/loadpoints/1/phasesActive      -> "1" | "2" | "3"
-    evcc/loadpoints/1/vehicleSoc        -> "37"              (%)
-    evcc/loadpoints/1/chargeCurrents/l1 -> "16"              (A, optional, 3-phase)
+    evcc/loadpoints/1/vehicleSoc        -> "37"        (%)
 """
 
 
@@ -173,7 +174,15 @@ def compute_dbus_values(state, phases=1, max_current=32, fallback_energy_kwh=0.0
     if charge_power is None:
         charge_power = 0.0
 
-    charge_current = state.get("chargeCurrent")
+    # Actual charging current. evcc has no scalar "chargeCurrent": it publishes
+    # per-phase "chargeCurrents/l1..l3" plus a scalar "chargeCurrents" topic.
+    # Use L1 (the charging phase on a single-phase charger), then fall back to
+    # the scalar topic, then to the offered current.
+    charge_current = state.get("chargeCurrents/l1")
+    if charge_current is None:
+        charge_current = state.get("chargeCurrents")
+    if charge_current is None:
+        charge_current = state.get("offeredCurrent")
     if charge_current is None:
         charge_current = 0.0
 
@@ -192,9 +201,20 @@ def compute_dbus_values(state, phases=1, max_current=32, fallback_energy_kwh=0.0
     else:
         energy_forward = fallback_energy_kwh
 
-    # chargeDuration is published in nanoseconds.
-    duration_ns = state.get("chargeDuration")
-    charging_time = int(round(duration_ns / 1e9)) if duration_ns is not None else 0
+    # evcc publishes chargeDuration in SECONDS over MQTT. (Older builds marshalled
+    # the Go time.Duration as nanoseconds; guard against that with a sanity
+    # threshold - no real session lasts > ~115 days, so a huge value is ns.)
+    duration = state.get("chargeDuration")
+    if duration is None:
+        charging_time = 0
+    elif duration > 1e7:
+        charging_time = int(round(duration / 1e9))
+    else:
+        charging_time = int(round(duration))
+
+    # Session energy (kWh) from evcc's per-session sessionEnergy (Wh).
+    session_energy = state.get("sessionEnergy")
+    session_energy_kwh = session_energy / 1000.0 if session_energy is not None else 0.0
 
     return {
         "/Ac/Power": float(charge_power),
@@ -206,6 +226,8 @@ def compute_dbus_values(state, phases=1, max_current=32, fallback_energy_kwh=0.0
         "/SetCurrent": float(charge_current),
         "/MaxCurrent": float(max_current),
         "/ChargingTime": charging_time,
+        "/Session/Time": charging_time,
+        "/Session/Energy": float(session_energy_kwh),
         "/Connected": 1 if connected else 0,
         "/StartStop": 1 if enabled else 0,
         "/Mode": MODE_AUTO if mode in AUTO_MODES else MODE_MANUAL,

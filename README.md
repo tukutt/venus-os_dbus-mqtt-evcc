@@ -100,15 +100,16 @@ All topics are relative to `<topic_prefix>/loadpoints/<loadpoint_id>/`
 
 | evcc topic | Example payload | Victron dbus path | Conversion |
 | --- | --- | --- | --- |
-| `chargePower` | `7360` (W) | `/Ac/Power` | — |
+| `chargePower` | `7543.77` (W) | `/Ac/Power` | — |
 | `chargePower` | | `/Ac/L1/Power`, `/Ac/L2/Power`, `/Ac/L3/Power` | split per `phases` / `phasesActive` / `chargeCurrents` |
-| `chargeCurrent` | `16` (A) | `/Current`, `/SetCurrent` | — |
+| `chargeCurrents/l1` | `32.339` (A) | `/Current` | L1 (fallback: scalar `chargeCurrents`, then `offeredCurrent`) |
 | *(config `max_current`)* | `32` | `/MaxCurrent` | — |
-| `chargeTotalImport` | `176920` (Wh) | `/Ac/Energy/Forward` | **Wh → kWh** (÷ 1000) |
-| `chargedEnergy` *(fallback)* | `5210.4` (Wh, session) | `/Ac/Energy/Forward` | accumulated → kWh when `chargeTotalImport` absent |
-| `chargeDuration` | `1340000000000` (ns) | `/ChargingTime` | **ns → s** (÷ 1e9, rounded) |
+| `chargeTotalImport` | `10982` (Wh) | `/Ac/Energy/Forward` | **Wh → kWh** (÷ 1000) |
+| `chargedEnergy` *(fallback)* | `8625` (Wh, session) | `/Ac/Energy/Forward` | accumulated → kWh when `chargeTotalImport` absent |
+| `sessionEnergy` | `8625` (Wh) | `/Session/Energy` | **Wh → kWh** (÷ 1000) |
+| `chargeDuration` | `5851` (s) | `/ChargingTime`, `/Session/Time` | seconds (ns auto-detected & converted for legacy builds) |
 | `connected` | `true` / `false` | `/Connected` | `true → 1`, `false → 0` |
-| `enabled` | `true` / `false` | `/StartStop` | `true → 1`, `false → 0` |
+| `enabled` | `true` / `false` | `/StartStop` *(not exposed, read-only)* | `true → 1`, `false → 0` |
 | `mode` | `off` / `now` / `minpv` / `pv` | `/Mode` | `pv`,`minpv → 1` (Auto), else `0` (Manual) |
 | `charging` | `true` / `false` | `/Status` | see below |
 | `connected` | | `/Status` | see below |

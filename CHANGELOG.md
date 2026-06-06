@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.4
+* Fixed: `/Current` stayed at 0 — evcc has no scalar `chargeCurrent`; now read
+  from `chargeCurrents/l1` (fallback: scalar `chargeCurrents`, then `offeredCurrent`)
+* Fixed: `/ChargingTime` stayed at 0 — evcc publishes `chargeDuration` in seconds
+  over MQTT, not nanoseconds (legacy ns values are still auto-detected)
+* Added: `/Session/Energy` (from `sessionEnergy`) and `/Session/Time`
+* Changed: run the driver with `python -u` so DEBUG logs are not buffered by multilog
+
 ## 0.1.3
 * Fixed: "Enable Charging" toggle and "Charge Current" slider still shown in
   Venus OS / VRM despite read-only operation. `/StartStop` and `/SetCurrent`

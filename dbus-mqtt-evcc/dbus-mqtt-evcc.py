@@ -152,6 +152,14 @@ def _kwh(p, v):
     return str("%.2f" % v) + "kWh"
 
 
+def _hms(p, v):
+    try:
+        s = int(v)
+        return "%dh%02dm" % (s // 3600, (s % 3600) // 60)
+    except Exception:
+        return str("%ss" % v)
+
+
 # dbus paths with their initial (idle / disconnected) values and text formatters.
 # The service registers immediately with these defaults and gets populated as
 # evcc messages arrive - no "minimum message" is required to start.
@@ -165,6 +173,8 @@ ev_charger_dict = {
     "/SetCurrent": {"value": 0, "textformat": _a},
     "/MaxCurrent": {"value": max_current, "textformat": _a},
     "/ChargingTime": {"value": 0, "textformat": _n},
+    "/Session/Time": {"value": 0, "textformat": _hms},
+    "/Session/Energy": {"value": 0, "textformat": _kwh},
     "/Connected": {"value": 0, "textformat": _n},
     "/StartStop": {"value": 0, "textformat": _n},
     "/Mode": {"value": 0, "textformat": _n},
@@ -321,7 +331,7 @@ class DbusMqttEvccService:
         self._dbusservice.add_path("/ProductId", 0xFFFF)
         self._dbusservice.add_path("/ProductName", productname)
         self._dbusservice.add_path("/CustomName", customname)
-        self._dbusservice.add_path("/FirmwareVersion", "0.1.3 (20260606)")
+        self._dbusservice.add_path("/FirmwareVersion", "0.1.4 (20260606)")
         # self._dbusservice.add_path('/HardwareVersion', '')
 
         # This driver is read/display only (evcc is the master). Tell Venus OS the
